@@ -1,4 +1,4 @@
-const pdfParse = require("pdf-parse")
+const { PDFParse } = require("pdf-parse")
 const { generateInterviewReport, generateResumePdf } = require("../services/ai.service")
 const interviewReportModel = require("../models/interviewReport.model")
 
@@ -9,29 +9,96 @@ const interviewReportModel = require("../models/interviewReport.model")
  * @description Controller to generate interview report based on user self description, resume and job description.
  */
 async function generateInterViewReportController(req, res) {
+    try {
+        // Validate file upload
+        if (!req.file) {
+            return res.status(400).json({
+                message: "Resume file is required. Please upload a PDF or DOCX file."
+            })
+        }
 
-    const resumeContent = await (new pdfParse.PDFParse(Uint8Array.from(req.file.buffer))).getText()
-    const { selfDescription, jobDescription } = req.body
+        // Validate form data
+        const { selfDescription, jobDescription } = req.body
 
-    const interViewReportByAi = await generateInterviewReport({
-        resume: resumeContent.text,
-        selfDescription,
-        jobDescription
-    })
+        if (!selfDescription && !jobDescription) {
+            return res.status(400).json({
+                message: "Either Job Description or Self Description is required."
+            })
+        }
 
-    const interviewReport = await interviewReportModel.create({
-        user: req.user.id,
-        resume: resumeContent.text,
-        selfDescription,
-        jobDescription,
-        ...interViewReportByAi
-    })
+        // Parse resume file
+        let resumeContent
+        try {
+            const parser = new PDFParse({ data: req.file.buffer })
+            resumeContent = await parser.getText()
+            await parser.destroy()
+            
+            // Check if text extraction was successful
+            if (!resumeContent.text || resumeContent.text.trim() === '') {
+                return res.status(400).json({
+                    message: "The PDF appears to be empty or contains no readable text. Please upload a valid resume PDF."
+                })
+            }
+        } catch (pdfError) {
+            console.error("PDF Parsing Error:", pdfError.message)
+            return res.status(400).json({
+                message: "Failed to parse PDF file. Please ensure the file is a valid PDF document.",
+                details: pdfError.message
+            })
+        }
 
-    res.status(201).json({
-        message: "Interview report generated successfully.",
-        interviewReport
-    })
+        // Generate AI report
+        let interViewReportByAi
+        try {
+            interViewReportByAi = await generateInterviewReport({
+                resume: resumeContent.text,
+                selfDescription,
+                jobDescription
+            })
+        } catch (aiError) {
+            console.error("AI Service Error:", aiError.message)
+            return res.status(500).json({
+                message: "Failed to generate interview report. Please check your AI API configuration and try again.",
+                details: aiError.message
+            })
+        }
 
+        // Save to database
+        const interviewReport = await interviewReportModel.create({
+            user: req.user.id,
+            resume: resumeContent.text,
+            selfDescription,
+            jobDescription,
+            ...interViewReportByAi
+        })
+
+        res.status(201).json({
+            message: "Interview report generated successfully.",
+            interviewReport
+        })
+
+    } catch (error) {
+        console.error("Error in generateInterViewReportController:", error)
+        
+        // Handle multer file size error
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({
+                message: "File size exceeds 5MB limit. Please upload a smaller file."
+            })
+        }
+
+        // Handle multer file filter error
+        if (error.message.includes('only')) {
+            return res.status(400).json({
+                message: error.message
+            })
+        }
+
+        res.status(500).json({
+            message: "An error occurred while processing your resume. Please try again.",
+            error: error.message
+        })
+    }
 }
 
 /**
@@ -73,26 +140,40 @@ async function getAllInterviewReportsController(req, res) {
  * @description Controller to generate resume PDF based on user self description, resume and job description.
  */
 async function generateResumePdfController(req, res) {
-    const { interviewReportId } = req.params
+    try {
+        const { interviewReportId } = req.params
 
-    const interviewReport = await interviewReportModel.findById(interviewReportId)
+        const interviewReport = await interviewReportModel.findById(interviewReportId)
 
-    if (!interviewReport) {
-        return res.status(404).json({
-            message: "Interview report not found."
+        if (!interviewReport) {
+            return res.status(404).json({
+                message: "Interview report not found."
+            })
+        }
+
+        if (interviewReport.user && interviewReport.user.toString() !== req.user.id) {
+            return res.status(403).json({
+                message: "You are not authorized to access this interview report."
+            })
+        }
+
+        const { resume, jobDescription, selfDescription } = interviewReport
+
+        const pdfBuffer = await generateResumePdf({ resume, jobDescription, selfDescription })
+
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`
+        })
+
+        res.send(pdfBuffer)
+    } catch (error) {
+        console.error("Error in generateResumePdfController:", error)
+        res.status(500).json({
+            message: "An error occurred while generating your resume PDF.",
+            error: error.message
         })
     }
-
-    const { resume, jobDescription, selfDescription } = interviewReport
-
-    const pdfBuffer = await generateResumePdf({ resume, jobDescription, selfDescription })
-
-    res.set({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`
-    })
-
-    res.send(pdfBuffer)
 }
 
 module.exports = { generateInterViewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController }

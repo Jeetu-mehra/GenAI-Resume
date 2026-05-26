@@ -11,10 +11,17 @@ const Register = () => {
 
     const {loading,handleRegister} = useAuth()
     
+    const [ error, setError ] = useState("")
+    
     const handleSubmit = async (e) => {
         e.preventDefault()
-        await handleRegister({username,email,password})
-        navigate("/")
+        setError("")
+        try {
+            await handleRegister({username,email,password})
+            navigate("/")
+        } catch (err) {
+            setError(err.message || "Registration failed. Please try again.")
+        }
     }
 
     if(loading){
@@ -25,6 +32,7 @@ const Register = () => {
         <main>
             <div className="form-container">
                 <h1>Register</h1>
+                {error && <div className="error-message">{error}</div>}
 
                 <form onSubmit={handleSubmit}>
 
