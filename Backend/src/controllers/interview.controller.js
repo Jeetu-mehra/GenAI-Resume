@@ -1,5 +1,5 @@
 const { PDFParse } = require("pdf-parse")
-const { generateInterviewReport, generateResumePdf } = require("../services/ai.service")
+const { generateInterviewReport, generateResumePdf, generateCoverLetterPdf } = require("../services/ai.service")
 const interviewReportModel = require("../models/interviewReport.model")
 
 
@@ -177,6 +177,47 @@ async function generateResumePdfController(req, res) {
 }
 
 /**
+ * @description Controller to generate cover letter PDF based on user self description, resume and job description.
+ */
+async function generateCoverLetterPdfController(req, res) {
+    try {
+        const { interviewReportId } = req.params
+
+        const interviewReport = await interviewReportModel.findById(interviewReportId)
+
+        if (!interviewReport) {
+            return res.status(404).json({
+                message: "Interview report not found."
+            })
+        }
+
+        if (interviewReport.user && interviewReport.user.toString() !== req.user.id) {
+            return res.status(403).json({
+                message: "You are not authorized to access this interview report."
+            })
+        }
+
+        const { resume, jobDescription, selfDescription } = interviewReport
+
+        const pdfBuffer = await generateCoverLetterPdf({ resume, jobDescription, selfDescription })
+
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename=cover_letter_${interviewReportId}.pdf`
+        })
+
+        res.send(pdfBuffer)
+    } catch (error) {
+        console.error("Error in generateCoverLetterPdfController:", error)
+        res.status(500).json({
+            message: "An error occurred while generating your cover letter PDF.",
+            error: error.message
+        })
+    }
+}
+
+
+/**
  * @description Controller to delete an interview report by interviewReportId.
  */
 async function deleteInterviewReportController(req, res) {
@@ -203,4 +244,4 @@ async function deleteInterviewReportController(req, res) {
     }
 }
 
-module.exports = { generateInterViewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController, deleteInterviewReportController }
+module.exports = { generateInterViewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController, generateCoverLetterPdfController, deleteInterviewReportController }

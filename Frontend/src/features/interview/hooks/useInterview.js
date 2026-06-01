@@ -1,4 +1,4 @@
-import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf, deleteInterviewReport, scrapeJobFromUrl } from "../services/interview.api"
+import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf, generateCoverLetterPdf, deleteInterviewReport, scrapeJobFromUrl } from "../services/interview.api"
 import { useContext } from "react"
 import { InterviewContext } from "../interview.context"
 
@@ -77,6 +77,27 @@ export const useInterview = () => {
         }
     }
 
+    const getCoverLetterPdf = async (interviewReportId) => {
+        setLoading(true)
+        let response = null
+        try {
+            response = await generateCoverLetterPdf({ interviewReportId })
+            const url = window.URL.createObjectURL(new Blob([ response ], { type: "application/pdf" }))
+            const link = document.createElement("a")
+            link.href = url
+            link.setAttribute("download", `cover_letter_${interviewReportId}.pdf`)
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
+        }
+        catch (error) {
+            console.log(error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
     const deleteReport = async (interviewReportId) => {
         try {
             await deleteInterviewReport(interviewReportId)
@@ -98,6 +119,6 @@ export const useInterview = () => {
         }
     }
 
-    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf, deleteReport, fetchJobFromUrl }
+    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf, getCoverLetterPdf, deleteReport, fetchJobFromUrl }
 
 }

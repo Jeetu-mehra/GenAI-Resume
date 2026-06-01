@@ -1,0 +1,188 @@
+// ── Variables ─────────────────────────────────────────────────────────────────
+$bg-page:      #0d1117;
+$bg-card:      #161b22;
+$bg-panel:     #1c2230;
+$border-color: #2a3348;
+$text-primary: #e6edf3;
+$text-muted:   #7d8590;
+$accent:       #ff2d78;
+$font-stack:   system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+// ── Full-screen overlay ───────────────────────────────────────────────────────
+.ls-overlay {
+    position: fixed;
+    inset: 0;
+    background: $bg-page;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    font-family: $font-stack;
+    animation: ls-fade-in 0.3s ease-out;
+}
+
+@keyframes ls-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+// ── Card ──────────────────────────────────────────────────────────────────────
+.ls-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    max-width: 420px;
+    width: 100%;
+    padding: 2.5rem 2rem;
+    background: $bg-card;
+    border: 1px solid $border-color;
+    border-radius: 1.25rem;
+    text-align: center;
+    animation: ls-scale-in 0.3s ease-out;
+}
+
+@keyframes ls-scale-in {
+    from { opacity: 0; transform: scale(0.94) translateY(12px); }
+    to   { opacity: 1; transform: scale(1)   translateY(0);     }
+}
+
+// ── Animated orb ──────────────────────────────────────────────────────────────
+.ls-orb {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &__ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        animation: ls-spin linear infinite;
+
+        &--1 {
+            inset: 0;
+            border-top-color: $accent;
+            animation-duration: 1.4s;
+        }
+        &--2 {
+            inset: 8px;
+            border-right-color: rgba($accent, 0.5);
+            animation-duration: 2s;
+            animation-direction: reverse;
+        }
+        &--3 {
+            inset: 16px;
+            border-bottom-color: rgba($accent, 0.25);
+            animation-duration: 2.8s;
+        }
+    }
+
+    &__icon {
+        font-size: 1.6rem;
+        line-height: 1;
+        animation: ls-pop 0.3s ease-out;
+        z-index: 1;
+    }
+}
+
+@keyframes ls-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes ls-pop {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+// ── Text ──────────────────────────────────────────────────────────────────────
+.ls-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.ls-subtitle {
+    font-size: 0.83rem;
+    color: $text-muted;
+    margin: 0;
+    line-height: 1.6;
+    max-width: 320px;
+}
+
+// ── Step list ─────────────────────────────────────────────────────────────────
+.ls-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid $border-color;
+    padding-top: 1.25rem;
+}
+
+.ls-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    transition: background 0.25s;
+
+    &--done {
+        .ls-step__indicator { color: #3fb950; background: rgba(#3fb950, 0.1); border-color: rgba(#3fb950, 0.2); }
+        .ls-step__label     { color: $text-muted; text-decoration: line-through; }
+    }
+
+    &--active {
+        background: rgba($accent, 0.06);
+        .ls-step__indicator { background: rgba($accent, 0.12); border-color: rgba($accent, 0.25); }
+        .ls-step__label     { color: $text-primary; font-weight: 600; }
+    }
+
+    &--pending {
+        .ls-step__label { color: darken($text-muted, 10%); }
+    }
+
+    &__indicator {
+        flex-shrink: 0;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 1px solid $border-color;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.25s, border-color 0.25s, color 0.25s;
+        color: $text-muted;
+    }
+
+    &__label {
+        font-size: 0.845rem;
+        transition: color 0.25s;
+        text-align: left;
+    }
+
+    &__spinner {
+        width: 10px;
+        height: 10px;
+        border: 2px solid rgba($accent, 0.3);
+        border-top-color: $accent;
+        border-radius: 50%;
+        animation: ls-spin 0.7s linear infinite;
+    }
+
+    &__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: $border-color;
+    }
+}

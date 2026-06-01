@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import "../style/home.scss"
 import { useInterview } from '../hooks/useInterview.js'
 import { useNavigate } from 'react-router'
+import LoadingScreen from '../components/LoadingScreen'
 
 
 // ── Confirm Delete Modal ───────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ const Home = () => {
     const [ urlLoading, setUrlLoading ] = useState(false)
     const [ urlError, setUrlError ] = useState("")
     const [ deleteTarget, setDeleteTarget ] = useState(null)  // { _id, title }
+    const [ isGenerating, setIsGenerating ] = useState(false)
     const resumeInputRef = useRef()
     const navigate = useNavigate()
 
@@ -55,12 +57,15 @@ const Home = () => {
 
     const handleGenerateReport = async () => {
         setError("")
+        setIsGenerating(true)
         try {
             const resumeFile = resumeInputRef.current.files[0]
             const data = await generateReport({ jobDescription, selfDescription, resumeFile })
             navigate(`/interview/${data._id}`)
         } catch (err) {
             setError(err.message || "An error occurred. Please try again.")
+        } finally {
+            setIsGenerating(false)
         }
     }
 
@@ -90,13 +95,8 @@ const Home = () => {
         }
     }
 
-    if (loading) {
-        return (
-            <main className='loading-screen'>
-                <h1>Loading your interview plan...</h1>
-            </main>
-        )
-    }
+    if (isGenerating) return <LoadingScreen mode='generate' />
+    if (loading)      return <LoadingScreen mode='load' />
 
     return (
         <div className='home-page'>

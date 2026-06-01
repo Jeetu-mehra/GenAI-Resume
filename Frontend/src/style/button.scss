@@ -1,20 +1,35 @@
-.button{
-
+.button {
     border: none;
     outline: none;
     padding-inline: 1.5rem;
     padding-block: 0.75rem;
     border-radius: 1rem;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
 
-    transition: all 0.3s ease-in-out;
-
-    &.primary-button{
+    &.primary-button {
         background-color: #e1034d;
         color: white;
+
+        &:hover { opacity: 0.88; }
     }
 
-    &:active{
-        transform: scale(0.9);
+    &.secondary-button {
+        background-color: transparent;
+        color: #e1034d;
+        border: 1px solid rgba(#e1034d, 0.4);
+
+        &:hover {
+            background-color: rgba(#e1034d, 0.08);
+            border-color: #e1034d;
+        }
     }
-}
+
+    &:active { transform: scale(0.96); }
+}

@@ -39,6 +39,14 @@ interviewRouter.post("/resume/pdf/:interviewReportId", authMiddleware.authUser, 
 
 
 /**
+ * @route POST /api/interview/cover-letter/pdf/:interviewReportId
+ * @description generate cover letter pdf on the basis of user self description, resume content and job description.
+ * @access private
+ */
+interviewRouter.post("/cover-letter/pdf/:interviewReportId", authMiddleware.authUser, interviewController.generateCoverLetterPdfController)
+
+
+/**
  * @route DELETE /api/interview/:interviewReportId
  * @description delete an interview report by interviewReportId.
  * @access private
