@@ -91,6 +91,10 @@ const interviewReportSchema = new mongoose.Schema({
     title: {
         type: String,
         required: [ true, "Job title is required" ]
+    },
+    completedTasks: {
+        type: [String],
+        default: []
     }
 }, {
     timestamps: true

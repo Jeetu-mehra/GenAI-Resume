@@ -15,6 +15,14 @@ const interviewRouter = express.Router()
 interviewRouter.post("/", authMiddleware.authUser, upload.single("resume"), interviewController.generateInterViewReportController)
 
 /**
+ * @route GET /api/interview/analytics
+ * @description get interview report analytics for logged in user.
+ * @access private
+ */
+interviewRouter.get("/analytics", authMiddleware.authUser, interviewController.getInterviewAnalyticsController)
+
+
+/**
  * @route GET /api/interview/report/:interviewId
  * @description get interview report by interviewId.
  * @access private
@@ -44,6 +52,14 @@ interviewRouter.post("/resume/pdf/:interviewReportId", authMiddleware.authUser, 
  * @access private
  */
 interviewRouter.post("/cover-letter/pdf/:interviewReportId", authMiddleware.authUser, interviewController.generateCoverLetterPdfController)
+
+
+/**
+ * @route PATCH /api/interview/:interviewReportId/task
+ * @description update task checklist progress (complete/uncomplete).
+ * @access private
+ */
+interviewRouter.patch("/:interviewReportId/task", authMiddleware.authUser, interviewController.updateTaskProgressController)
 
 
 /**

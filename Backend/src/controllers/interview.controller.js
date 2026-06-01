@@ -216,6 +216,149 @@ async function generateCoverLetterPdfController(req, res) {
     }
 }
 
+/**
+ * @description Controller to fetch aggregated analytics across all user reports.
+ */
+async function getInterviewAnalyticsController(req, res) {
+    try {
+        const reports = await interviewReportModel.find({ user: req.user.id }).sort({ createdAt: 1 })
+
+        if (!reports.length) {
+            return res.status(200).json({
+                message: "No reports found for this user.",
+                analytics: {
+                    totalReports: 0,
+                    avgMatchScore: 0,
+                    highestMatchScore: 0,
+                    lowestMatchScore: 0,
+                    scoreTrend: [],
+                    skillGaps: [],
+                    strongRoles: []
+                }
+            })
+        }
+
+        const totalReports = reports.length
+        const sumScores = reports.reduce((acc, r) => acc + (r.matchScore || 0), 0)
+        const avgMatchScore = Math.round(sumScores / totalReports)
+
+        const highestMatchScore = Math.max(...reports.map(r => r.matchScore || 0))
+        const lowestMatchScore = Math.min(...reports.map(r => r.matchScore || 0))
+
+        const scoreTrend = reports.map(r => ({
+            date: r.createdAt,
+            matchScore: r.matchScore,
+            title: r.title
+        }))
+
+        const skillMap = {}
+        reports.forEach(r => {
+            if (r.skillGaps && Array.isArray(r.skillGaps)) {
+                r.skillGaps.forEach(g => {
+                    const skillName = g.skill.trim()
+                    if (!skillMap[skillName]) {
+                        skillMap[skillName] = { skill: g.skill, count: 0, severity: g.severity }
+                    }
+                    skillMap[skillName].count += 1
+                    
+                    const severityPriority = { high: 3, medium: 2, low: 1 }
+                    if (severityPriority[g.severity] > severityPriority[skillMap[skillName].severity]) {
+                        skillMap[skillName].severity = g.severity
+                    }
+                })
+            }
+        })
+
+        const skillGaps = Object.values(skillMap)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5)
+
+        const strongRoles = [...reports]
+            .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+            .slice(0, 3)
+            .map(r => ({
+                _id: r._id,
+                title: r.title,
+                matchScore: r.matchScore,
+                createdAt: r.createdAt
+            }))
+
+        res.status(200).json({
+            message: "Analytics fetched successfully.",
+            analytics: {
+                totalReports,
+                avgMatchScore,
+                highestMatchScore,
+                lowestMatchScore,
+                scoreTrend,
+                skillGaps,
+                strongRoles
+            }
+        })
+
+    } catch (error) {
+        console.error("Error in getInterviewAnalyticsController:", error)
+        res.status(500).json({
+            message: "An error occurred while calculating analytics.",
+            error: error.message
+        })
+    }
+}
+
+
+/**
+ * @description Controller to update preparation roadmap task progress (complete/uncomplete).
+ */
+async function updateTaskProgressController(req, res) {
+    try {
+        const { interviewReportId } = req.params
+        const { day, taskIndex, completed } = req.body
+
+        const interviewReport = await interviewReportModel.findById(interviewReportId)
+
+        if (!interviewReport) {
+            return res.status(404).json({
+                message: "Interview report not found."
+            })
+        }
+
+        if (interviewReport.user && interviewReport.user.toString() !== req.user.id) {
+            return res.status(403).json({
+                message: "You are not authorized to edit this interview report."
+            })
+        }
+
+        const taskKey = `${day}-${taskIndex}`
+        
+        // Initialize completedTasks array if not present
+        if (!interviewReport.completedTasks) {
+            interviewReport.completedTasks = []
+        }
+
+        if (completed) {
+            if (!interviewReport.completedTasks.includes(taskKey)) {
+                interviewReport.completedTasks.push(taskKey)
+            }
+        } else {
+            interviewReport.completedTasks = interviewReport.completedTasks.filter(k => k !== taskKey)
+        }
+
+        await interviewReport.save()
+
+        res.status(200).json({
+            message: "Task progress updated successfully.",
+            completedTasks: interviewReport.completedTasks
+        })
+    } catch (error) {
+        console.error("Error in updateTaskProgressController:", error)
+        res.status(500).json({
+            message: "An error occurred while updating task progress.",
+            error: error.message
+        })
+    }
+}
+
+
 
 /**
  * @description Controller to delete an interview report by interviewReportId.
@@ -244,4 +387,4 @@ async function deleteInterviewReportController(req, res) {
     }
 }
 
-module.exports = { generateInterViewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController, generateCoverLetterPdfController, deleteInterviewReportController }
+module.exports = { generateInterViewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController, generateCoverLetterPdfController, updateTaskProgressController, getInterviewAnalyticsController, deleteInterviewReportController }

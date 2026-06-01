@@ -35,11 +35,23 @@ const interviewReportSchema = z.object({
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
 
 
-    const prompt = `Generate an interview report for a candidate with the following details:
-                        Resume: ${resume}
-                        Self Description: ${selfDescription}
-                        Job Description: ${jobDescription}
-`
+    const prompt = `You are an expert ATS (Applicant Tracking System) parser and technical recruiter.
+                        Evaluate the candidate's profile against the target job description to generate a detailed interview strategy and an objective match score.
+
+                        Inputs:
+                        - Candidate Resume: ${resume || "Not provided"}
+                        - Candidate Self Description: ${selfDescription || "Not provided"}
+                        - Job Description: ${jobDescription}
+
+                        Calculation Guidelines for matchScore:
+                        1. Start with a baseline score based on tech stack alignment (50%), experience level alignment (30%), and educational/general qualifications (20%).
+                        2. Deduct marks objectively for any detected skill gaps in the candidate's profile:
+                           - Deduct 15-20% for each HIGH-severity skill gap (a critical prerequisite technology or concept specified in the job description that is missing from the resume).
+                           - Deduct 5-10% for each MEDIUM-severity skill gap (a preferred, secondary requirement or tool that is missing).
+                           - Deduct 2-5% for each LOW-severity skill gap (minor/nice-to-have items).
+                        3. Be realistic and honest: If a candidate has major skill gaps or has a completely unrelated background, the matchScore MUST be low (e.g., under 40%). Do not inflate scores. Give a professional, accurate assessment that matches real-world recruiter screening.
+                        4. Ensure that the severity of gaps listed in your 'skillGaps' field aligns with the matchScore deduction (e.g., if you list 3 high severity gaps, the match score should reflect those heavy penalties).
+                    `
 
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-lite",

@@ -1,4 +1,4 @@
-import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf, generateCoverLetterPdf, deleteInterviewReport, scrapeJobFromUrl } from "../services/interview.api"
+import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf, generateCoverLetterPdf, deleteInterviewReport, scrapeJobFromUrl, updateTaskProgress, getInterviewAnalytics } from "../services/interview.api"
 import { useContext } from "react"
 import { InterviewContext } from "../interview.context"
 
@@ -119,6 +119,59 @@ export const useInterview = () => {
         }
     }
 
-    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf, getCoverLetterPdf, deleteReport, fetchJobFromUrl }
+    const toggleTaskCompletion = async (interviewReportId, day, taskIndex, completed) => {
+        // Optimistically update frontend state for snappy feel
+        const taskKey = `${day}-${taskIndex}`
+        setReport(prev => {
+            if (prev && prev._id === interviewReportId) {
+                const currentCompleted = prev.completedTasks || []
+                const newCompleted = completed 
+                    ? [...currentCompleted, taskKey]
+                    : currentCompleted.filter(k => k !== taskKey)
+                return { ...prev, completedTasks: newCompleted }
+            }
+            return prev
+        })
+
+        try {
+            const completedTasks = await updateTaskProgress({ interviewReportId, day, taskIndex, completed })
+            // Set actual updated array from backend
+            setReport(prev => {
+                if (prev && prev._id === interviewReportId) {
+                    return { ...prev, completedTasks }
+                }
+                return prev
+            })
+        } catch (error) {
+            console.error("Error toggling task completion:", error)
+            // Revert state on error
+            setReport(prev => {
+                if (prev && prev._id === interviewReportId) {
+                    const currentCompleted = prev.completedTasks || []
+                    const newCompleted = completed 
+                        ? currentCompleted.filter(k => k !== taskKey)
+                        : [...currentCompleted, taskKey]
+                    return { ...prev, completedTasks: newCompleted }
+                }
+                return prev
+            })
+        }
+    }
+
+    const getAnalytics = async () => {
+        setLoading(true)
+        try {
+            const data = await getInterviewAnalytics()
+            return data
+        } catch (error) {
+            console.error("Error loading analytics:", error)
+            throw error
+        } finally {
+            setLoading(false)
+        }
+    }
+
+
+    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf, getCoverLetterPdf, deleteReport, fetchJobFromUrl, toggleTaskCompletion, getAnalytics }
 
 }

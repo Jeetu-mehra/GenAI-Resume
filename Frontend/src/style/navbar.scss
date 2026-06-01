@@ -1,0 +1,288 @@
+$bg-page:        #08090c;
+$bg-card:        rgba(22, 27, 34, 0.65);
+$bg-panel:       #121620;
+$border-color:   #1f2430;
+$text-primary:   #f0f3f8;
+$text-muted:     #8f96a3;
+$accent:         #e1034c;
+$accent-alt:     #ff4a7d;
+$font-stack:     'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+.global-navbar {
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba($bg-page, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    height: 70px;
+    display: flex;
+    align-items: center;
+    font-family: $font-stack;
+    padding-inline: 2rem;
+
+    @media (max-width: 768px) {
+        padding-inline: 1rem;
+    }
+}
+
+.navbar-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: $text-primary;
+    font-weight: 800;
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+
+    .brand-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, $accent 0%, $accent-alt 100%);
+        color: #fff;
+        padding: 6px;
+        box-shadow: 0 4px 12px rgba($accent, 0.25);
+
+        svg {
+            stroke: currentColor;
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    .brand-name {
+        font-family: $font-stack;
+        
+        .highlight {
+            color: $accent-alt;
+        }
+    }
+}
+
+.navbar-menu {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+
+    @media (max-width: 768px) {
+        gap: 0.75rem;
+    }
+}
+
+.navbar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: $text-muted;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    transition: all 0.25s ease;
+    border: 1px solid transparent;
+
+    svg {
+        stroke: currentColor;
+        transition: stroke 0.25s;
+    }
+
+    &:hover {
+        color: $text-primary;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    &--active {
+        color: #fff;
+        background: rgba($accent, 0.1);
+        border: 1px solid rgba($accent, 0.2);
+
+        svg {
+            stroke: $accent-alt;
+        }
+
+        &:hover {
+            background: rgba($accent, 0.15);
+            color: #fff;
+        }
+    }
+}
+
+.navbar-user-section {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba($accent, 0.2) 0%, rgba($accent-alt, 0.2) 100%);
+    border: 1px solid rgba($accent, 0.3);
+    color: $accent-alt;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.user-name {
+    font-size: 0.85rem;
+    color: $text-primary;
+    font-weight: 600;
+    
+    @media (max-width: 600px) {
+        display: none;
+    }
+}
+
+.navbar-logout-btn {
+    background: none;
+    border: none;
+    outline: none;
+    color: $text-muted;
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+
+    svg {
+        stroke: currentColor;
+    }
+
+    &:hover {
+        color: $accent-alt;
+        background: rgba(255, 77, 77, 0.08);
+    }
+}
+
+// Global layout wrappers
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: $bg-page;
+}
+
+.app-main-content {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+// Global Footer
+.global-footer {
+    width: 100%;
+    background-color: rgba($bg-page, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 2rem 2rem 2.5rem;
+    font-family: $font-stack;
+    margin-top: auto;
+    z-index: 10;
+}
+
+.footer-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.5rem;
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        text-align: center;
+        align-items: center;
+    }
+}
+
+.footer-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 800;
+        font-size: 1.1rem;
+        color: $text-primary;
+        text-decoration: none;
+
+        @media (max-width: 768px) {
+            justify-content: center;
+        }
+
+        .footer-logo-icon {
+            width: 20px;
+            height: 20px;
+            stroke: $accent-alt;
+        }
+
+        .footer-brand-name {
+            .highlight {
+                color: $accent-alt;
+            }
+        }
+    }
+
+    .footer-copyright {
+        font-size: 0.775rem;
+        color: $text-muted;
+        margin: 0;
+    }
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+}
+
+.footer-links-group {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+
+    @media (max-width: 768px) {
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    a {
+        color: $text-muted;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 600;
+        transition: color 0.2s;
+
+        &:hover {
+            color: $accent-alt;
+        }
+    }
+}
+

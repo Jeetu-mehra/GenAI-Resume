@@ -126,4 +126,22 @@ export const deleteInterviewReport = async (interviewReportId) => {
 export const scrapeJobFromUrl = async (url) => {
     const response = await api.post("/api/scrape/job", { url })
     return response.data.jobDescription
+}
+
+
+/**
+ * @description Service to update progress on a preparation roadmap task.
+ */
+export const updateTaskProgress = async ({ interviewReportId, day, taskIndex, completed }) => {
+    const response = await api.patch(`/api/interview/${interviewReportId}/task`, { day, taskIndex, completed })
+    return response.data.completedTasks
+}
+
+
+/**
+ * @description Service to fetch all interview analytics for the user.
+ */
+export const getInterviewAnalytics = async () => {
+    const response = await api.get("/api/interview/analytics")
+    return response.data.analytics
 }

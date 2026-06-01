@@ -40,19 +40,35 @@ const QuestionCard = ({ item, index }) => {
     )
 }
 
-const RoadMapDay = ({ day }) => (
+const RoadMapDay = ({ day, completedTasks = [], onToggle, reportId }) => (
     <div className='roadmap-day'>
         <div className='roadmap-day__header'>
             <span className='roadmap-day__badge'>Day {day.day}</span>
             <h3 className='roadmap-day__focus'>{day.focus}</h3>
         </div>
         <ul className='roadmap-day__tasks'>
-            {day.tasks.map((task, i) => (
-                <li key={i}>
-                    <span className='roadmap-day__bullet' />
-                    {task}
-                </li>
-            ))}
+            {day.tasks.map((task, i) => {
+                const taskKey = `${day.day}-${i}`
+                const isChecked = completedTasks.includes(taskKey)
+                return (
+                    <li key={i} className={`roadmap-day__task-item ${isChecked ? 'roadmap-day__task-item--completed' : ''}`}>
+                        <label className='roadmap-day__checkbox-label'>
+                            <input 
+                                type='checkbox' 
+                                checked={isChecked} 
+                                onChange={(e) => onToggle(reportId, day.day, i, e.target.checked)} 
+                                className='roadmap-day__checkbox'
+                            />
+                            <span className='roadmap-day__custom-checkbox'>
+                                {isChecked && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                )}
+                            </span>
+                            <span className='roadmap-day__task-text'>{task}</span>
+                        </label>
+                    </li>
+                )
+            })}
         </ul>
     </div>
 )
@@ -61,7 +77,7 @@ const RoadMapDay = ({ day }) => (
 const Interview = () => {
     const [ activeNav, setActiveNav ] = useState('technical')
     const [ coverLetterLoading, setCoverLetterLoading ] = useState(false)
-    const { report, getReportById, loading, getResumePdf, getCoverLetterPdf } = useInterview()
+    const { report, getReportById, loading, getResumePdf, getCoverLetterPdf, toggleTaskCompletion } = useInterview()
     const { interviewId } = useParams()
 
     useEffect(() => {
@@ -151,19 +167,41 @@ const Interview = () => {
                         </section>
                     )}
 
-                    {activeNav === 'roadmap' && (
-                        <section>
-                            <div className='content-header'>
-                                <h2>Preparation Road Map</h2>
-                                <span className='content-header__count'>{report.preparationPlan.length}-day plan</span>
-                            </div>
-                            <div className='roadmap-list'>
-                                {report.preparationPlan.map((day) => (
-                                    <RoadMapDay key={day.day} day={day} />
-                                ))}
-                            </div>
-                        </section>
-                    )}
+                    {activeNav === 'roadmap' && (() => {
+                        const totalTasks = report.preparationPlan.reduce((acc, d) => acc + d.tasks.length, 0)
+                        const completedCount = (report.completedTasks || []).length
+                        const pct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0
+                        return (
+                            <section>
+                                <div className='content-header'>
+                                    <h2>Preparation Road Map</h2>
+                                    <span className='content-header__count'>{report.preparationPlan.length}-day plan</span>
+                                </div>
+
+                                <div className='progress-tracker'>
+                                    <div className='progress-tracker__info'>
+                                        <span className='progress-tracker__percentage'>{pct}% Complete</span>
+                                        <span className='progress-tracker__stats'>{completedCount} of {totalTasks} tasks finished</span>
+                                    </div>
+                                    <div className='progress-tracker__bar-wrap'>
+                                        <div className='progress-tracker__bar' style={{ width: `${pct}%` }} />
+                                    </div>
+                                </div>
+
+                                <div className='roadmap-list'>
+                                    {report.preparationPlan.map((day) => (
+                                        <RoadMapDay 
+                                            key={day.day} 
+                                            day={day} 
+                                            completedTasks={report.completedTasks || []}
+                                            onToggle={toggleTaskCompletion}
+                                            reportId={report._id}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
+                        )
+                    })()}
                 </main>
 
                 <div className='interview-divider' />
@@ -178,7 +216,13 @@ const Interview = () => {
                             <span className='match-score__value'>{report.matchScore}</span>
                             <span className='match-score__pct'>%</span>
                         </div>
-                        <p className='match-score__sub'>Strong match for this role</p>
+                        <p className={`match-score__sub match-score__sub--${
+                            report.matchScore >= 80 ? 'high' :
+                            report.matchScore >= 60 ? 'mid' : 'low'
+                        }`}>
+                            {report.matchScore >= 80 ? 'Strong match for this role' :
+                             report.matchScore >= 60 ? 'Good match with some gaps' : 'Low match - needs improvement'}
+                        </p>
                     </div>
 
                     <div className='sidebar-divider' />
