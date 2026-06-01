@@ -161,4 +161,89 @@ async function generateCoverLetterPdf({ resume, selfDescription, jobDescription 
     return pdfBuffer
 }
 
-module.exports = { generateInterviewReport, generateResumePdf, generateCoverLetterPdf }
+const interviewFeedbackSchema = z.object({
+    score: z.number().min(0).max(100).describe("Overall rating score of the candidate's interview performance between 0 and 100"),
+    summary: z.string().describe("A professional high-level summary of the candidate's performance, communication style, and technical accuracy"),
+    strengths: z.array(z.string()).describe("A list of 3-5 distinct strengths demonstrated by the candidate during the interview"),
+    improvements: z.array(z.string()).describe("A list of 3-5 clear, actionable areas of improvement and tips for future study")
+})
+
+async function generateNextInterviewResponse({ jobDescription, resume, messages }) {
+    const chatHistoryText = messages.map(m => {
+        const senderName = m.role === 'user' ? 'Candidate' : 'Interviewer';
+        return `${senderName}: ${m.content}`;
+    }).join("\n");
+
+    const prompt = `You are a professional, friendly, but rigorous technical and behavioral interviewer.
+                    You are conducting a live simulated interview for the following position:
+                    
+                    Target Job Description:
+                    ${jobDescription}
+
+                    Candidate Resume/Profile:
+                    ${resume || "Not provided"}
+
+                    Active Conversation Log:
+                    ${chatHistoryText}
+
+                    Your Goal:
+                    1. Read the active conversation log above.
+                    2. Generate the next logical question or response as the Interviewer.
+                    3. Ask only ONE concise question at a time.
+                    4. Focus on checking technical skills, project architectures, behavioral fit, and requirements listed in the job description.
+                    5. Keep your tone professional, constructive, and realistic. Do not write explanations or preambles outside of the interviewer's direct words.
+                    6. Respond directly as the Interviewer (e.g. "That's a solid explanation. How would you handle...") without prefixes like "Interviewer:".
+                    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-lite",
+        contents: prompt,
+    });
+
+    return response.text.trim();
+}
+
+async function generateInterviewFeedback({ jobDescription, resume, messages }) {
+    const chatHistoryText = messages.map(m => {
+        const senderName = m.role === 'user' ? 'Candidate' : 'Interviewer';
+        return `${senderName}: ${m.content}`;
+    }).join("\n");
+
+    const prompt = `You are an expert technical recruiter and senior engineering manager.
+                    Evaluate the candidate's responses in the interview conversation log below against the target job requirements and resume profile.
+                    Provide objective, constructive feedback and an overall performance score.
+
+                    Target Job Description:
+                    ${jobDescription}
+
+                    Candidate Resume/Profile:
+                    ${resume || "Not provided"}
+
+                    Full Interview Chat Log:
+                    ${chatHistoryText}
+
+                    Evaluate the following:
+                    1. Technical accuracy: Did the candidate correctly explain core engineering concepts?
+                    2. Communication clarity: Did the candidate explain details concisely and structure behavioral answers effectively (e.g., STAR method)?
+                    3. Job Alignment: How well do the candidate's answers demonstrate suitability for the specific target role?
+                    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-lite",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: zodToJsonSchema(interviewFeedbackSchema)
+        }
+    });
+
+    return JSON.parse(response.text);
+}
+
+module.exports = { 
+    generateInterviewReport, 
+    generateResumePdf, 
+    generateCoverLetterPdf,
+    generateNextInterviewResponse,
+    generateInterviewFeedback
+}

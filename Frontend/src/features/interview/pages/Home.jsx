@@ -208,6 +208,7 @@ const Home = () => {
     const [ selfDescription, setSelfDescription ] = useState("")
     const [ error, setError ] = useState("")
     const [ fileName, setFileName ] = useState("")
+    const [ resumeFile, setResumeFile ] = useState(null)
     const [ urlInput, setUrlInput ] = useState("")
     const [ urlLoading, setUrlLoading ] = useState(false)
     const [ urlError, setUrlError ] = useState("")
@@ -235,6 +236,7 @@ const Home = () => {
         const file = e.target.files[0]
         if (file) {
             setFileName(file.name)
+            setResumeFile(file)
             setError("")
         }
     }
@@ -243,7 +245,6 @@ const Home = () => {
         setError("")
         setIsGenerating(true)
         try {
-            const resumeFile = resumeInputRef.current.files[0]
             const data = await generateReport({ jobDescription, selfDescription, resumeFile })
             navigate(`/interview/${data._id}`)
         } catch (err) {
@@ -552,6 +553,7 @@ const Home = () => {
                                                     e.preventDefault()
                                                     e.stopPropagation()
                                                     setFileName("")
+                                                    setResumeFile(null)
                                                     if (resumeInputRef.current) resumeInputRef.current.value = ""
                                                 }}
                                                 title="Remove file"

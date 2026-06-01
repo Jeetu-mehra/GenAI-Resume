@@ -1,95 +1,279 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router'
 import { useInterview } from '../hooks/useInterview'
+import { useMockInterview } from '../hooks/useMockInterview'
 import LoadingScreen from '../components/LoadingScreen'
 import '../style/mockInterview.scss'
-
-const PRESET_QUESTIONS = [
-    "Excellent! Let's dive into a technical scenario. Since this role requires solid architecture skills, how would you handle state management or optimize performance in a large-scale application?",
-    "Understood. Let's shift to a behavioral question. Can you tell me about a time you faced a tight deadline or high pressure, and how you managed to deliver?",
-    "Great response. One last question: If you were hired tomorrow, what is the first thing you would do to ensure you integrate smoothly into the team?",
-    "Thank you for sharing that. That concludes the structured questions for today. I have generated your performance report. Please click 'End & Grade Interview' to see your details!"
-]
 
 const MockInterviewSession = () => {
     const { interviewId } = useParams()
     const navigate = useNavigate()
-    const { report, getReportById, loading } = useInterview()
-    const [messages, setMessages] = useState([])
+    const { report, getReportById, loading: reportLoading } = useInterview()
+    const { 
+        loading: mockLoading, 
+        session, 
+        messages, 
+        startSession, 
+        sendMessageText, 
+        endSessionGracefully 
+    } = useMockInterview()
+    
     const [inputValue, setInputValue] = useState('')
     const [isTyping, setIsTyping] = useState(false)
-    const [currentStep, setCurrentStep] = useState(0) // 0: intro, 1: tech, 2: behavioral, 3: wrapup, 4: done
     const [showFeedback, setShowFeedback] = useState(false)
     const chatEndRef = useRef(null)
 
-    // Load report details
+    // Voice Mode State
+    const [voiceModeEnabled, setVoiceModeEnabled] = useState(false)
+    const [isListening, setIsListening] = useState(false)
+    const [speechSupported, setSpeechSupported] = useState(false)
+    const [showVoiceModal, setShowVoiceModal] = useState(false) // Overlay room modal
+    const [isAiSpeaking, setIsAiSpeaking] = useState(false) // TTS speaking indicator
+    const recognitionRef = useRef(null)
+    const baseTextRef = useRef('')
+    const lastReadIndexRef = useRef(-1)
+
+    // Text-To-Speech (TTS) Voice Engine
+    const speakText = (text) => {
+        if (!window.speechSynthesis) return
+
+        // Cancel any active speech synthesis
+        window.speechSynthesis.cancel()
+
+        // Clean text formatting (remove markdown asterisks, bold markers, backticks, hashes)
+        const cleanedText = text.replace(/[*_`#]/g, '').trim()
+
+        const utterance = new SpeechSynthesisUtterance(cleanedText)
+        utterance.lang = 'en-US'
+
+        const voices = window.speechSynthesis.getVoices()
+        // Prioritize natural US/GB English voices
+        const selectedVoice = voices.find(voice => 
+            voice.lang.startsWith('en-US') && 
+            (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('David'))
+        ) || voices.find(voice => voice.lang.startsWith('en'))
+
+        if (selectedVoice) {
+            utterance.voice = selectedVoice
+        }
+
+        utterance.rate = 1.05 // Recruiter pacing
+        utterance.pitch = 1.0
+
+        utterance.onstart = () => {
+            setIsAiSpeaking(true)
+        }
+
+        utterance.onend = () => {
+            setIsAiSpeaking(false)
+            // Hands-free trigger: if voice modal is open, immediately activate mic for candidate response!
+            if (voiceModeEnabled || showVoiceModal) {
+                // Short timeout to prevent mic hearing the tail end of the audio output (highly robust)
+                setTimeout(() => {
+                    startListening()
+                }, 100)
+            }
+        }
+
+        utterance.onerror = (e) => {
+            console.error("Speech synthesis error:", e)
+            setIsAiSpeaking(false)
+        }
+
+        window.speechSynthesis.speak(utterance)
+    }
+
+    const handleMuteSpeech = () => {
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel()
+        }
+        setIsAiSpeaking(false)
+    }
+
+    // Speech-To-Text (STT) Speech Recognition
+    useEffect(() => {
+        // Asynchronously initialize speech voices
+        if (window.speechSynthesis) {
+            window.speechSynthesis.getVoices()
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        if (SpeechRecognition) {
+            setSpeechSupported(true)
+            const recognition = new SpeechRecognition()
+            recognition.continuous = true
+            recognition.interimResults = true
+            recognition.lang = 'en-US'
+
+            recognition.onstart = () => {
+                setIsListening(true)
+            }
+
+            recognition.onresult = (event) => {
+                let transcript = ''
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript
+                }
+                
+                setInputValue(() => {
+                    const base = baseTextRef.current
+                    return base + (base && !base.endsWith(' ') ? ' ' : '') + transcript
+                })
+            }
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error)
+                setIsListening(false)
+            }
+
+            recognition.onend = () => {
+                setIsListening(false)
+            }
+
+            recognitionRef.current = recognition
+        }
+
+        return () => {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel()
+            }
+            if (recognitionRef.current) {
+                recognitionRef.current.abort()
+            }
+        }
+    }, [])
+
+    const startListening = () => {
+        if (recognitionRef.current && !isListening) {
+            baseTextRef.current = inputValue
+            try {
+                // Cancel speaking if we are talking to the mic
+                handleMuteSpeech()
+                recognitionRef.current.start()
+            } catch (err) {
+                console.error("Failed to start speech recognition:", err)
+            }
+        }
+    }
+
+    const stopListening = () => {
+        if (recognitionRef.current && isListening) {
+            try {
+                recognitionRef.current.stop()
+            } catch (err) {
+                console.error("Failed to stop speech recognition:", err)
+            }
+        }
+    }
+
+    // Load report details on mount
     useEffect(() => {
         if (interviewId) {
             getReportById(interviewId)
+            startSession(interviewId).then(() => {
+                lastReadIndexRef.current = -1
+            }).catch(err => {
+                console.error("Failed to start session:", err)
+            })
         }
     }, [interviewId])
-
-    // Load initial greeting
-    useEffect(() => {
-        if (report) {
-            setMessages([
-                {
-                    id: 1,
-                    role: 'assistant',
-                    content: `Hello! I will be your interviewer today for the ${report.title || 'Target'} role. I have analyzed your profile and identified some key areas to assess. Let's start with a standard opening question: Can you describe your background and tell me why you are interested in this position?`,
-                    timestamp: new Date()
-                }
-            ])
-        }
-    }, [report])
 
     // Scroll to bottom on new messages
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages, isTyping])
 
-    const handleSend = () => {
-        if (!inputValue.trim()) return
-
-        const userMessage = {
-            id: messages.length + 1,
-            role: 'user',
-            content: inputValue.trim(),
-            timestamp: new Date()
+    // Automatically read new assistant messages if Voice Mode is active
+    useEffect(() => {
+        if (voiceModeEnabled && messages.length > 0) {
+            const lastIndex = messages.length - 1
+            const lastMsg = messages[lastIndex]
+            if (lastMsg.role === 'assistant' && lastReadIndexRef.current < lastIndex) {
+                lastReadIndexRef.current = lastIndex
+                speakText(lastMsg.content)
+            }
         }
+    }, [messages, voiceModeEnabled, showVoiceModal])
 
-        setMessages(prev => [...prev, userMessage])
+    const handleExitVoiceModal = () => {
+        setShowVoiceModal(false)
+        setVoiceModeEnabled(false)
+        handleMuteSpeech()
+        stopListening()
+    }
+
+    const handleEnterVoiceModal = () => {
+        setShowVoiceModal(true)
+        setVoiceModeEnabled(true)
+        // Speak the last assistant message if any exists
+        const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
+        if (lastAssistantMsg) {
+            speakText(lastAssistantMsg.content)
+        }
+    }
+
+    const handleSend = async () => {
+        // Stop speech recognition when sending
+        stopListening()
+        
+        if (!inputValue.trim() || !session) return
+
+        const text = inputValue.trim()
         setInputValue('')
         setIsTyping(true)
 
-        // Simulate AI thinking and response
-        setTimeout(() => {
-            setIsTyping(false)
-            let replyContent = ""
-            
-            if (currentStep < PRESET_QUESTIONS.length) {
-                replyContent = PRESET_QUESTIONS[currentStep]
-                setCurrentStep(prev => prev + 1)
-            } else {
-                replyContent = "The interview has ended. Please click 'End & Grade' at the top to generate your feedback scorecard!"
-            }
+        // Cancel running speech synthesis when candidate replies
+        handleMuteSpeech()
 
-            const aiMessage = {
-                id: messages.length + 2,
-                role: 'assistant',
-                content: replyContent,
-                timestamp: new Date()
-            }
-            setMessages(prev => [...prev, aiMessage])
-        }, 1500)
+        try {
+            await sendMessageText(session._id, text)
+        } catch (err) {
+            console.error("Failed to process reply:", err)
+        } finally {
+            setIsTyping(false)
+        }
     }
 
-    if (loading || !report) return <LoadingScreen mode='load' />
+    const handleEndInterview = async () => {
+        stopListening()
+        handleMuteSpeech()
+        if (!session) return
+        try {
+            await endSessionGracefully(session._id)
+            setShowFeedback(true)
+        } catch (err) {
+            console.error("Failed to grade session:", err)
+        }
+    }
+
+    const handleRestartSession = async () => {
+        stopListening()
+        handleMuteSpeech()
+        if (!interviewId) return
+        setShowFeedback(false)
+        setInputValue('')
+        lastReadIndexRef.current = -1
+        try {
+            if (session && session.status !== "completed") {
+                await endSessionGracefully(session._id)
+            }
+            await startSession(interviewId)
+        } catch (err) {
+            console.error("Failed to restart session:", err)
+        }
+    }
+
+    if (reportLoading || !report) return <LoadingScreen mode='load' />
+    if (mockLoading && !session) return <LoadingScreen mode='load' />
+
+    // Stepper logic based on conversation user message length
+    const userMessagesCount = messages.filter(m => m.role === 'user').length
+    const activeStepIndex = Math.min(userMessagesCount, 3) // 0: intro, 1: tech, 2: behavioral, 3: wrapup
 
     return (
         <div className='mock-interview-page'>
             {/* Feedback Report Overlay */}
-            {showFeedback && (
+            {showFeedback && session && session.feedback && (
                 <div className='feedback-overlay'>
                     <div className='feedback-card'>
                         <div className='feedback-card__header'>
@@ -103,13 +287,13 @@ const MockInterviewSession = () => {
                         <div className='feedback-card__body'>
                             {/* Score Ring */}
                             <div className='feedback-score-section'>
-                                <div className='score-ring score-ring--high'>
-                                    <span className='score-ring__value'>78</span>
+                                <div className={`score-ring ${session.feedback.score >= 80 ? 'score-ring--high' : 'score-ring--mid'}`}>
+                                    <span className='score-ring__value'>{session.feedback.score}</span>
                                     <span className='score-ring__max'>/100</span>
                                 </div>
                                 <div className='score-assessment'>
-                                    <h3>Overall Rating: Strong Match</h3>
-                                    <p>You demonstrated clear understanding of technical architectures and answered the behavioral scenarios with good structure. Communication was steady, though some explanations could be more concise.</p>
+                                    <h3>Overall Rating: {session.feedback.score >= 80 ? 'Strong Match' : session.feedback.score >= 60 ? 'Good Potential' : 'Needs Preparation'}</h3>
+                                    <p>{session.feedback.summary}</p>
                                 </div>
                             </div>
 
@@ -121,9 +305,9 @@ const MockInterviewSession = () => {
                                         Key Strengths
                                     </h4>
                                     <ul>
-                                        <li>Clear explanation of system scaling considerations and bottleneck analysis.</li>
-                                        <li>Good logical flow using professional terminology matching the job description.</li>
-                                        <li>Strong demonstration of teamwork and problem ownership in behavioral responses.</li>
+                                        {session.feedback.strengths.map((str, i) => (
+                                            <li key={i}>{str}</li>
+                                        ))}
                                     </ul>
                                 </div>
 
@@ -133,33 +317,125 @@ const MockInterviewSession = () => {
                                         Areas for Improvement
                                     </h4>
                                     <ul>
-                                        <li>Provide more specific details on technology stacks instead of high-level abstractions.</li>
-                                        <li>Use the STAR methodology (Situation, Task, Action, Result) more rigidly for behavioral answers to showcase final outcomes.</li>
-                                        <li>Ensure direct answers to questions are stated upfront before providing background details.</li>
+                                        {session.feedback.improvements.map((imp, i) => (
+                                            <li key={i}>{imp}</li>
+                                        ))}
                                     </ul>
                                 </div>
                             </div>
                         </div>
 
                         <div className='feedback-card__footer'>
-                            <button className='btn btn--restart' onClick={() => {
-                                setMessages([
-                                    {
-                                        id: 1,
-                                        role: 'assistant',
-                                        content: `Hello! I will be your interviewer today for the ${report.title || 'Target'} role. Let's restart. Can you describe your background and tell me why you are interested in this position?`,
-                                        timestamp: new Date()
-                                    }
-                                ])
-                                setCurrentStep(0)
-                                setShowFeedback(false)
-                            }}>
+                            <button className='btn btn--restart' onClick={handleRestartSession}>
                                 Restart Session
                             </button>
                             <Link to='/?tab=dashboard' className='btn btn--home'>
                                 Back to Dashboard
                             </Link>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Immersive Voice Room Modal Overlay */}
+            {showVoiceModal && (
+                <div className='voice-room-overlay'>
+                    <div className='voice-room-card'>
+                        {/* Header */}
+                        <header className='voice-room-header'>
+                            <div className='voice-room-header__left'>
+                                <span className='live-badge'>
+                                    <span className='pulse-dot' />
+                                    Live Session
+                                </span>
+                                <h3>{report.title}</h3>
+                            </div>
+                            <button className='voice-room-close-btn' onClick={handleExitVoiceModal} title="Exit Voice Room">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </header>
+
+                        {/* Body content */}
+                        <div className='voice-room-body'>
+                            {/* Animated sound wave orb */}
+                            <div className='voice-orb-container'>
+                                <div className={`voice-orb ${isAiSpeaking ? 'voice-orb--speaking' : isListening ? 'voice-orb--listening' : ''}`}>
+                                    <div className='voice-orb__pulse-ring-1' />
+                                    <div className='voice-orb__pulse-ring-2' />
+                                    <div className='voice-orb__core'>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="11" width="18" height="10" rx="2" />
+                                            <circle cx="12" cy="5" r="2" />
+                                            <path d="M12 7v4" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <p className='voice-status-text'>
+                                    {isAiSpeaking ? "Interviewer is speaking..." : isListening ? "Listening... Speak now" : "Tap Microphone to respond"}
+                                </p>
+                            </div>
+
+                            {/* Question box display */}
+                            <div className='voice-question-box'>
+                                <h4>Current Question</h4>
+                                <p className='question-text'>
+                                    {[...messages].reverse().find(m => m.role === 'assistant')?.content || "Initializing interview strategy simulation..."}
+                                </p>
+                            </div>
+
+                            {/* Candidate live transcription card */}
+                            <div className='voice-transcript-box'>
+                                <h4>Your Response (Live Transcript)</h4>
+                                <div className={`transcript-content ${isListening ? 'transcript-content--active' : ''}`}>
+                                    {inputValue ? (
+                                        <p className='transcript-text'>{inputValue}</p>
+                                    ) : (
+                                        <p className='transcript-placeholder'>
+                                            {isListening ? "Hearing your response... Please speak." : "No transcript recorded. Click the mic button below to start dictating."}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer controls */}
+                        <footer className='voice-room-footer'>
+                            <button
+                                className={`voice-ctrl-btn voice-ctrl-btn--mic ${isListening ? 'voice-ctrl-btn--active' : ''}`}
+                                onClick={isListening ? stopListening : startListening}
+                                title={isListening ? "Stop Microphone" : "Start Microphone"}
+                                type="button"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                    <line x1="12" y1="19" x2="12" y2="23"/>
+                                </svg>
+                                {isListening && (
+                                    <div className="voice-waves voice-waves--modal">
+                                        <span className="wave-bar"></span>
+                                        <span className="wave-bar"></span>
+                                        <span className="wave-bar"></span>
+                                    </div>
+                                )}
+                            </button>
+
+                            <button 
+                                className='voice-send-btn'
+                                onClick={handleSend}
+                                disabled={!inputValue.trim() || isTyping}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                Send Response
+                            </button>
+
+                            <button
+                                className='voice-exit-btn'
+                                onClick={handleExitVoiceModal}
+                            >
+                                Switch to Text Mode
+                            </button>
+                        </footer>
                     </div>
                 </div>
             )}
@@ -177,11 +453,25 @@ const MockInterviewSession = () => {
                     </div>
                 </div>
                 <div className='session-header__right'>
+                    {speechSupported && (
+                        <button 
+                            className="voice-mode-toggle"
+                            onClick={handleEnterVoiceModal}
+                            title="Enter Interactive Voice Room"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" y1="19" x2="12" y2="23"/>
+                            </svg>
+                            <span>Voice Room</span>
+                        </button>
+                    )}
                     <span className='status-badge'>
                         <span className='pulse-dot' />
                         Live Simulator
                     </span>
-                    <button className='end-session-btn' onClick={() => setShowFeedback(true)}>
+                    <button className='end-session-btn' onClick={handleEndInterview} disabled={messages.length <= 1 || mockLoading}>
                         End & Grade Interview
                     </button>
                 </div>
@@ -192,8 +482,8 @@ const MockInterviewSession = () => {
                 {/* Left Column - Chat Room */}
                 <div className='chat-console'>
                     <div className='chat-messages-container'>
-                        {messages.map(msg => (
-                            <div key={msg.id} className={`message-row message-row--${msg.role}`}>
+                        {messages.map((msg, index) => (
+                            <div key={index} className={`message-row message-row--${msg.role}`}>
                                 {msg.role === 'assistant' && (
                                     <div className='message-avatar'>
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -205,10 +495,23 @@ const MockInterviewSession = () => {
                                         </svg>
                                     </div>
                                 )}
-                                <div className='message-bubble'>
+                                <div className={`message-bubble ${msg.role === 'assistant' ? 'message-bubble--assistant' : ''}`}>
+                                    {msg.role === 'assistant' && (
+                                        <button 
+                                            className="bubble-speak-btn" 
+                                            onClick={() => speakText(msg.content)}
+                                            title="Read out loud"
+                                            type="button"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                            </svg>
+                                        </button>
+                                    )}
                                     <p className='message-text'>{msg.content}</p>
                                     <span className='message-time'>
-                                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
                             </div>
@@ -235,9 +538,35 @@ const MockInterviewSession = () => {
                     </div>
 
                     <div className='chat-input-bar'>
+                        {speechSupported && (
+                            <button
+                                className={`mic-btn ${isListening ? 'mic-btn--listening' : ''}`}
+                                onClick={isListening ? stopListening : startListening}
+                                disabled={session?.status === 'completed' || isTyping}
+                                title={isListening ? "Stop Listening" : "Start Voice Input"}
+                                type="button"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                    <line x1="12" y1="19" x2="12" y2="23"/>
+                                </svg>
+                                {isListening && <span className="mic-glow-ring" />}
+                            </button>
+                        )}
+
+                        {isListening && (
+                            <div className="voice-waves">
+                                <span className="wave-bar"></span>
+                                <span className="wave-bar"></span>
+                                <span className="wave-bar"></span>
+                                <span className="wave-bar"></span>
+                            </div>
+                        )}
+
                         <textarea
-                            className='chat-textarea'
-                            placeholder='Type your response here...'
+                            className={`chat-textarea ${isListening ? 'chat-textarea--listening' : ''}`}
+                            placeholder={isListening ? 'Listening... Speak now' : 'Type your response here...'}
                             value={inputValue}
                             onChange={e => setInputValue(e.target.value)}
                             onKeyDown={e => {
@@ -246,8 +575,13 @@ const MockInterviewSession = () => {
                                     handleSend()
                                 }
                             }}
+                            disabled={session?.status === 'completed' || isTyping}
                         />
-                        <button className='chat-send-btn' onClick={handleSend} disabled={!inputValue.trim() || isTyping}>
+                        <button 
+                            className='chat-send-btn' 
+                            onClick={handleSend} 
+                            disabled={!inputValue.trim() || isTyping || session?.status === 'completed'}
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                         </button>
                     </div>
@@ -258,31 +592,27 @@ const MockInterviewSession = () => {
                     <div className='sidebar-box'>
                         <h3>Interview Progress</h3>
                         <div className='progress-stepper'>
-                            <div className={`step-item ${currentStep >= 0 ? 'step-item--completed' : ''}`}>
+                            <div className={`step-item ${activeStepIndex >= 0 ? 'step-item--completed' : ''}`}>
                                 <span className='step-circle'>✓</span>
                                 <span className='step-name'>Welcome & Setup</span>
                             </div>
-                            <div className={`step-item ${currentStep > 0 ? 'step-item--completed' : currentStep === 0 ? 'step-item--active' : ''}`}>
-                                <span className='step-circle'>{currentStep > 0 ? '✓' : '1'}</span>
+                            <div className={`step-item ${activeStepIndex > 0 ? 'step-item--completed' : activeStepIndex === 0 ? 'step-item--active' : ''}`}>
+                                <span className='step-circle'>{activeStepIndex > 0 ? '✓' : '1'}</span>
                                 <span className='step-name'>Self Introduction</span>
                             </div>
-                            <div className={`step-item ${currentStep > 1 ? 'step-item--completed' : currentStep === 1 ? 'step-item--active' : ''}`}>
-                                <span className='step-circle'>{currentStep > 1 ? '✓' : '2'}</span>
+                            <div className={`step-item ${activeStepIndex > 1 ? 'step-item--completed' : activeStepIndex === 1 ? 'step-item--active' : ''}`}>
+                                <span className='step-circle'>{activeStepIndex > 1 ? '✓' : '2'}</span>
                                 <span className='step-name'>Technical Skills</span>
                             </div>
-                            <div className={`step-item ${currentStep > 2 ? 'step-item--completed' : currentStep === 2 ? 'step-item--active' : ''}`}>
-                                <span className='step-circle'>{currentStep > 2 ? '✓' : '3'}</span>
-                                <span className='step-name'>Behavioral Scenarios</span>
-                            </div>
-                            <div className={`step-item ${currentStep > 3 ? 'step-item--completed' : currentStep === 3 ? 'step-item--active' : ''}`}>
-                                <span className='step-circle'>{currentStep > 3 ? '✓' : '4'}</span>
-                                <span className='step-name'>Closing Remarks</span>
+                            <div className={`step-item ${activeStepIndex > 2 ? 'step-item--completed' : activeStepIndex === 2 ? 'step-item--active' : ''}`}>
+                                <span className='step-circle'>{activeStepIndex > 2 ? '✓' : '3'}</span>
+                                <span className='step-name'>Behavioral Fit</span>
                             </div>
                         </div>
                     </div>
 
                     <div className='sidebar-box'>
-                        <h3>Quick Preparation Tips</h3>
+                        <h3>Quick Practice Tips</h3>
                         <ul className='tips-list'>
                             <li>
                                 <strong>STAR Framework:</strong> Structure behavioral responses detailing Situation, Task, Action, and Result.

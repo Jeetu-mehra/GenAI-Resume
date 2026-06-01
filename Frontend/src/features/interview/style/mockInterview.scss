@@ -105,6 +105,49 @@ $severity-low:    #3fb950;
         @media (max-width: 768px) {
             width: 100%;
             justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .voice-mode-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1.25rem;
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: $text-muted;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border-radius: 2rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+
+            svg {
+                stroke: currentColor;
+                transition: transform 0.2s;
+            }
+
+            &:hover {
+                border-color: rgba(255, 255, 255, 0.2);
+                color: $text-primary;
+                background-color: rgba(255, 255, 255, 0.05);
+
+                svg {
+                    transform: scale(1.05);
+                }
+            }
+
+            &--active {
+                background-color: rgba($accent, 0.08);
+                border-color: rgba($accent, 0.35);
+                color: $accent-alt;
+                box-shadow: 0 0 12px rgba($accent, 0.15);
+                animation: voiceGlow 2s infinite alternate;
+
+                svg {
+                    animation: micPulse 1.2s infinite ease-in-out alternate;
+                }
+            }
         }
 
         .status-badge {
@@ -773,5 +816,611 @@ $severity-low:    #3fb950;
     to {
         opacity: 1;
         transform: scale(1.00);
+    }
+}
+
+// ── Voice Mode Styling Extensions ─────────────────────────────────────────────
+
+@keyframes voiceGlow {
+    from {
+        box-shadow: 0 0 8px rgba($accent, 0.05);
+    }
+    to {
+        box-shadow: 0 0 16px rgba($accent, 0.2);
+    }
+}
+
+@keyframes micPulse {
+    from {
+        transform: scale(0.95);
+    }
+    to {
+        transform: scale(1.1);
+    }
+}
+
+// Inline Replay Button
+.message-bubble--assistant {
+    padding-right: 2.2rem !important;
+}
+
+.bubble-speak-btn {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: $text-muted;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.4;
+    padding: 0;
+
+    svg {
+        stroke: currentColor;
+    }
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: $accent-alt;
+        border-color: rgba($accent, 0.3);
+        opacity: 1;
+        transform: scale(1.05);
+    }
+}
+
+// Input mic button
+.chat-input-bar {
+    .mic-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background-color: $bg-panel;
+        border: 1px solid $border-color;
+        color: $text-muted;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        padding: 0;
+
+        svg {
+            stroke: currentColor;
+        }
+
+        &:hover:not(:disabled) {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: $text-primary;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        &--listening {
+            background-color: rgba($accent, 0.08) !important;
+            border-color: rgba($accent, 0.35) !important;
+            color: $accent-alt !important;
+            box-shadow: 0 0 10px rgba($accent, 0.2);
+
+            svg {
+                animation: micPulse 1s infinite alternate ease-in-out;
+            }
+        }
+
+        &:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+    }
+
+    .chat-textarea--listening {
+        border-color: rgba($accent, 0.25) !important;
+        box-shadow: inset 0 0 8px rgba($accent, 0.05) !important;
+        
+        &::placeholder {
+            color: rgba($accent-alt, 0.5) !important;
+        }
+    }
+}
+
+// Bouncing Voice Waves
+.voice-waves {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 18px;
+    padding: 0 0.25rem;
+
+    .wave-bar {
+        width: 3px;
+        height: 4px;
+        background-color: $accent-alt;
+        border-radius: 2px;
+        animation: waveBounce 0.8s infinite ease-in-out alternate;
+
+        &:nth-child(1) { height: 6px; animation-delay: -0.6s; }
+        &:nth-child(2) { height: 12px; animation-delay: -0.3s; }
+        &:nth-child(3) { height: 8px; animation-delay: -0.45s; }
+        &:nth-child(4) { height: 14px; animation-delay: -0.15s; }
+    }
+}
+
+@keyframes waveBounce {
+    0% {
+        transform: scaleY(0.4);
+    }
+    100% {
+        transform: scaleY(1.4);
+    }
+}
+
+// ── Immersive Voice Room Modal Styles ─────────────────────────────────────────
+
+.voice-room-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba($bg-page, 0.93);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    animation: fadeInModal 0.25s ease-out;
+
+    @media (max-width: 600px) {
+        padding: 1rem;
+    }
+}
+
+.voice-room-card {
+    background: $bg-panel;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.5rem;
+    width: 100%;
+    max-width: 640px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+    animation: scaleInModal 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+
+    @media (max-width: 600px) {
+        padding: 1.5rem;
+        gap: 1.25rem;
+    }
+}
+
+.voice-room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1.5px solid $border-color;
+    padding-bottom: 1rem;
+
+    &__left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0;
+            color: $text-primary;
+        }
+
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.725rem;
+            font-weight: 700;
+            color: $accent-alt;
+            background: rgba($accent, 0.08);
+            border: 1px solid rgba($accent, 0.2);
+            padding: 0.2rem 0.65rem;
+            border-radius: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+
+            .pulse-dot {
+                width: 6px;
+                height: 6px;
+                background-color: $accent-alt;
+                border-radius: 50%;
+                box-shadow: 0 0 6px $accent-alt;
+                animation: pulse 1.5s infinite alternate;
+            }
+        }
+    }
+
+    .voice-room-close-btn {
+        background: transparent;
+        border: none;
+        color: $text-muted;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 1px solid transparent;
+
+        &:hover {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+    }
+}
+
+.voice-room-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+// Sound wave Orb container
+.voice-orb-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.voice-orb {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle, rgba($text-muted, 0.25) 0%, rgba($text-muted, 0.1) 100%);
+    border: 1.5px solid rgba($text-muted, 0.2);
+    transition: all 0.35s ease;
+
+    .voice-orb__core {
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        background: #10131b;
+        border: 1.5px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: $text-muted;
+        z-index: 3;
+        transition: all 0.35s ease;
+
+        svg {
+            stroke: currentColor;
+            transition: transform 0.25s;
+        }
+    }
+
+    .voice-orb__pulse-ring-1, 
+    .voice-orb__pulse-ring-2 {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: transparent;
+        z-index: 1;
+        pointer-events: none;
+        transition: all 0.35s;
+    }
+
+    // AI Speaking State
+    &--speaking {
+        background: radial-gradient(circle, $accent-alt 0%, $accent 100%);
+        border-color: rgba($accent, 0.4);
+        box-shadow: 0 0 20px rgba($accent, 0.4);
+        animation: orbPulseSpeaking 1.5s infinite ease-in-out alternate;
+
+        .voice-orb__core {
+            color: $accent-alt;
+            border-color: rgba($accent, 0.3);
+        }
+
+        .voice-orb__pulse-ring-1 {
+            background: rgba($accent, 0.15);
+            animation: orbRingPulse 2.4s infinite ease-out;
+        }
+
+        .voice-orb__pulse-ring-2 {
+            background: rgba($accent, 0.15);
+            animation: orbRingPulse 2.4s infinite ease-out 1.2s;
+        }
+    }
+
+    // Candidate Dictation State
+    &--listening {
+        background: radial-gradient(circle, #3fb950 0%, #2ea043 100%);
+        border-color: rgba(#3fb950, 0.4);
+        box-shadow: 0 0 25px rgba(#3fb950, 0.4);
+        animation: orbPulseListening 1.2s infinite ease-in-out alternate;
+
+        .voice-orb__core {
+            color: #3fb950;
+            border-color: rgba(#3fb950, 0.3);
+            svg {
+                transform: scale(1.1);
+            }
+        }
+
+        .voice-orb__pulse-ring-1 {
+            background: rgba(#3fb950, 0.15);
+            animation: orbRingPulse 2s infinite ease-out;
+        }
+
+        .voice-orb__pulse-ring-2 {
+            background: rgba(#3fb950, 0.15);
+            animation: orbRingPulse 2s infinite ease-out 1s;
+        }
+    }
+}
+
+.voice-status-text {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+}
+
+// Question & Transcript Containers
+.voice-question-box, 
+.voice-transcript-box {
+    width: 100%;
+
+    h4 {
+        font-size: 0.725rem;
+        text-transform: uppercase;
+        color: $text-muted;
+        letter-spacing: 0.05em;
+        margin: 0 0 0.5rem 0.25rem;
+        font-weight: 700;
+    }
+}
+
+.voice-question-box {
+    .question-text {
+        font-size: 0.95rem;
+        color: #fff;
+        font-weight: 500;
+        margin: 0;
+        line-height: 1.55;
+        background: rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+    }
+}
+
+.voice-transcript-box {
+    .transcript-content {
+        background: $bg-input;
+        border: 1px solid $border-color;
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+        min-height: 90px;
+        max-height: 120px;
+        overflow-y: auto;
+        transition: all 0.25s ease;
+
+        &--active {
+            border-color: rgba(#3fb950, 0.35);
+            box-shadow: 0 0 12px rgba(#3fb950, 0.06);
+        }
+    }
+
+    .transcript-placeholder {
+        color: darken($text-muted, 18%);
+        font-style: italic;
+        font-size: 0.85rem;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .transcript-text {
+        color: $text-primary;
+        font-size: 0.9rem;
+        margin: 0;
+        line-height: 1.5;
+    }
+}
+
+// Footer buttons
+.voice-room-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1.5px solid $border-color;
+    padding-top: 1.25rem;
+    gap: 1rem;
+
+    .voice-ctrl-btn {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 1px solid $border-color;
+        background-color: $bg-input;
+        color: $text-muted;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        padding: 0;
+
+        svg {
+            stroke: currentColor;
+        }
+
+        &:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        &--active {
+            background-color: rgba(#3fb950, 0.08) !important;
+            border-color: rgba(#3fb950, 0.35) !important;
+            color: #3fb950 !important;
+            box-shadow: 0 0 12px rgba(#3fb950, 0.15);
+
+            svg {
+                animation: micPulse 1s infinite alternate ease-in-out;
+            }
+        }
+    }
+
+    .voice-send-btn {
+        flex: 1;
+        height: 48px;
+        background: linear-gradient(135deg, $accent 0%, $accent-alt 100%);
+        border: none;
+        border-radius: 2rem;
+        color: #fff;
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 15px rgba($accent, 0.25);
+        transition: all 0.2s ease;
+
+        svg {
+            stroke: currentColor;
+        }
+
+        &:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba($accent, 0.35);
+        }
+
+        &:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        &:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+    }
+
+    .voice-exit-btn {
+        height: 48px;
+        padding: 0 1.25rem;
+        background-color: rgba(255, 255, 255, 0.02);
+        border: 1px solid $border-color;
+        border-radius: 2rem;
+        color: $text-muted;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+    }
+}
+
+// Bouncing waves inside footer microphone button
+.voice-waves--modal {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 8px;
+    gap: 2px;
+    padding: 0;
+
+    .wave-bar {
+        width: 2px;
+        height: 2px;
+        background-color: #3fb950 !important;
+        border-radius: 1px;
+    }
+}
+
+// Immersive Animations
+@keyframes orbPulseSpeaking {
+    0% {
+        transform: scale(0.96);
+        box-shadow: 0 0 16px rgba($accent, 0.25);
+    }
+    100% {
+        transform: scale(1.04);
+        box-shadow: 0 0 28px rgba($accent, 0.5);
+    }
+}
+
+@keyframes orbPulseListening {
+    0% {
+        transform: scale(0.96);
+        box-shadow: 0 0 16px rgba(#3fb950, 0.25);
+    }
+    100% {
+        transform: scale(1.04);
+        box-shadow: 0 0 28px rgba(#3fb950, 0.55);
+    }
+}
+
+@keyframes orbRingPulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1.55);
+        opacity: 0;
+    }
+}
+
+@keyframes fadeInModal {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes scaleInModal {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
     }
 }
