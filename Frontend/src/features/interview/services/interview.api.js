@@ -96,3 +96,21 @@ export const generateResumePdf = async ({ interviewReportId }) => {
 
     return response.data
 }
+
+
+/**
+ * @description Service to delete an interview report by interviewReportId.
+ */
+export const deleteInterviewReport = async (interviewReportId) => {
+    const response = await api.delete(`/api/interview/${interviewReportId}`)
+    return response.data
+}
+
+
+/**
+ * @description Service to scrape a job description from a given URL.
+ */
+export const scrapeJobFromUrl = async (url) => {
+    const response = await api.post("/api/scrape/job", { url })
+    return response.data.jobDescription
+}

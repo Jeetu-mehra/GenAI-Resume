@@ -3,15 +3,42 @@ import "../style/home.scss"
 import { useInterview } from '../hooks/useInterview.js'
 import { useNavigate } from 'react-router'
 
+
+// ── Confirm Delete Modal ───────────────────────────────────────────────────────
+const DeleteModal = ({ reportTitle, onConfirm, onCancel }) => (
+    <div className='modal-overlay' onClick={onCancel}>
+        <div className='modal' onClick={e => e.stopPropagation()}>
+            <div className='modal__icon'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
+                </svg>
+            </div>
+            <h3 className='modal__title'>Delete Report?</h3>
+            <p className='modal__body'>
+                <strong>"{reportTitle}"</strong> will be permanently deleted. This cannot be undone.
+            </p>
+            <div className='modal__actions'>
+                <button className='modal__btn modal__btn--cancel' onClick={onCancel}>Cancel</button>
+                <button className='modal__btn modal__btn--delete' onClick={onConfirm}>Delete</button>
+            </div>
+        </div>
+    </div>
+)
+
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 const Home = () => {
 
-    const { loading, generateReport, reports, getReports } = useInterview()
+    const { loading, generateReport, reports, getReports, deleteReport, fetchJobFromUrl } = useInterview()
     const [ jobDescription, setJobDescription ] = useState("")
     const [ selfDescription, setSelfDescription ] = useState("")
     const [ error, setError ] = useState("")
     const [ fileName, setFileName ] = useState("")
+    const [ urlInput, setUrlInput ] = useState("")
+    const [ urlLoading, setUrlLoading ] = useState(false)
+    const [ urlError, setUrlError ] = useState("")
+    const [ deleteTarget, setDeleteTarget ] = useState(null)  // { _id, title }
     const resumeInputRef = useRef()
-
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -28,14 +55,38 @@ const Home = () => {
 
     const handleGenerateReport = async () => {
         setError("")
-        
         try {
             const resumeFile = resumeInputRef.current.files[0]
             const data = await generateReport({ jobDescription, selfDescription, resumeFile })
             navigate(`/interview/${data._id}`)
         } catch (err) {
             setError(err.message || "An error occurred. Please try again.")
-            console.error("Report generation error:", err)
+        }
+    }
+
+    const handleFetchUrl = async () => {
+        if (!urlInput.trim()) return
+        setUrlError("")
+        setUrlLoading(true)
+        try {
+            const text = await fetchJobFromUrl(urlInput.trim())
+            setJobDescription(text)
+            setUrlInput("")
+        } catch (err) {
+            setUrlError(err.message || "Failed to fetch job description from this URL.")
+        } finally {
+            setUrlLoading(false)
+        }
+    }
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteTarget) return
+        try {
+            await deleteReport(deleteTarget._id)
+        } catch {
+            setError("Failed to delete report. Please try again.")
+        } finally {
+            setDeleteTarget(null)
         }
     }
 
@@ -49,6 +100,15 @@ const Home = () => {
 
     return (
         <div className='home-page'>
+
+            {/* Delete Confirm Modal */}
+            {deleteTarget && (
+                <DeleteModal
+                    reportTitle={deleteTarget.title}
+                    onConfirm={handleDeleteConfirm}
+                    onCancel={() => setDeleteTarget(null)}
+                />
+            )}
 
             {/* Page Header */}
             <header className='page-header'>
@@ -77,10 +137,43 @@ const Home = () => {
                             <h2>Target Job Description</h2>
                             <span className='badge badge--required'>Required</span>
                         </div>
+
+                        {/* URL Import Row */}
+                        <div className='url-import'>
+                            <div className='url-import__row'>
+                                <div className='url-import__input-wrap'>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                    <input
+                                        type='url'
+                                        className='url-import__input'
+                                        placeholder='Paste LinkedIn, Indeed, or any job URL...'
+                                        value={urlInput}
+                                        onChange={e => setUrlInput(e.target.value)}
+                                        onKeyDown={e => e.key === "Enter" && handleFetchUrl()}
+                                    />
+                                </div>
+                                <button
+                                    className={`url-import__btn ${urlLoading ? 'url-import__btn--loading' : ''}`}
+                                    onClick={handleFetchUrl}
+                                    disabled={urlLoading || !urlInput.trim()}
+                                >
+                                    {urlLoading ? (
+                                        <span className='url-import__spinner' />
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" /></svg>
+                                    )}
+                                    {urlLoading ? "Fetching..." : "Fetch"}
+                                </button>
+                            </div>
+                            {urlError && <p className='url-import__error'>{urlError}</p>}
+                            {!urlError && <p className='url-import__hint'>Auto-imports job description from any job board</p>}
+                        </div>
+
                         <textarea
                             onChange={(e) => { setJobDescription(e.target.value) }}
+                            value={jobDescription}
                             className='panel__textarea'
-                            placeholder={`Paste the full job description here...\ne.g. 'Senior Frontend Engineer at Google requires proficiency in React, TypeScript, and large-scale system design...'`}
+                            placeholder={`Or paste the full job description here...\ne.g. 'Senior Frontend Engineer at Google requires proficiency in React, TypeScript, and large-scale system design...'`}
                             maxLength={5000}
                         />
                         <div className='char-counter'>{jobDescription.length} / 5000 chars</div>
@@ -159,7 +252,18 @@ const Home = () => {
                     <ul className='reports-list'>
                         {reports.map(report => (
                             <li key={report._id} className='report-item' onClick={() => navigate(`/interview/${report._id}`)}>
-                                <h3>{report.title || 'Untitled Position'}</h3>
+                                <div className='report-item__top'>
+                                    <h3>{report.title || 'Untitled Position'}</h3>
+                                    <button
+                                        className='report-item__delete'
+                                        title="Delete report"
+                                        onClick={e => { e.stopPropagation(); setDeleteTarget({ _id: report._id, title: report.title }) }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
+                                        </svg>
+                                    </button>
+                                </div>
                                 <p className='report-meta'>Generated on {new Date(report.createdAt).toLocaleDateString()}</p>
                                 <p className={`match-score ${report.matchScore >= 80 ? 'score--high' : report.matchScore >= 60 ? 'score--mid' : 'score--low'}`}>Match Score: {report.matchScore}%</p>
                             </li>

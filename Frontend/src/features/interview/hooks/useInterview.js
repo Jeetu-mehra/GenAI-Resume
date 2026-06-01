@@ -1,4 +1,4 @@
-import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf } from "../services/interview.api"
+import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf, deleteInterviewReport, scrapeJobFromUrl } from "../services/interview.api"
 import { useContext } from "react"
 import { InterviewContext } from "../interview.context"
 
@@ -77,6 +77,27 @@ export const useInterview = () => {
         }
     }
 
-    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf }
+    const deleteReport = async (interviewReportId) => {
+        try {
+            await deleteInterviewReport(interviewReportId)
+            // Optimistic UI: remove from local state immediately
+            setReports(prev => prev.filter(r => r._id !== interviewReportId))
+        } catch (error) {
+            console.error("Error deleting report:", error)
+            throw error
+        }
+    }
+
+    const fetchJobFromUrl = async (url) => {
+        try {
+            const jobDescription = await scrapeJobFromUrl(url)
+            return jobDescription
+        } catch (error) {
+            console.error("Error scraping job URL:", error)
+            throw error
+        }
+    }
+
+    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf, deleteReport, fetchJobFromUrl }
 
 }
